@@ -60,33 +60,7 @@ def GetRecentComment(reddit, username):
 
 # # # # #
 
-# TODO - Refactor this.
-
-def GetSwearsComments(reddit, username, swear):
-    count = 0
-
-    for comments in reddit.redditor(username).comments.top("all"):
-        for i in range(len(swear_words)):
-            if swear in comments.body:
-                count += 1
-    return count
-
-def GetSwearsPosts(reddit, username, swears):
-    count = 0
-
-    for posts in reddit.redditor(username).submissions.top("all"):
-        for i in range(len(swear_words)):
-            if swear_words[i] in posts.selftext or swear_words[i] in posts.title:
-                count += 1
-    return count
-
-def GetAmountOfWords(reddit, username, word):
-    for c in reddit.redditor(username).comments.top("all"):
-        return c.body.lower().split().count(word)
-
-def ReturnSwears():
-    for i in range(len(swear_words)):
-        return swear_words[i]
+# TODO - Refactor swear retrival.
 
 # # # # # # # # # # # # # # # # # # #
 
@@ -219,5 +193,3 @@ ReplyToComments(reddit, test_subreddit, 5)
 blacklisted_subs = TextToList(blacklisted_subreddit_filename)
 blacklisted_users = TextToList(blacklisted_users_filename)
 posted_comments_id = TextToList(comments_replied_filename)
-Contact GitHub API Training Shop Blog About
-© 2017 GitHub, Inc. Terms Privacy Security Status Help

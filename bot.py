@@ -3,7 +3,7 @@ import datetime
 import time
 import os
 
-swear_words = ["fuck", "shit", "cunt", "ass", "asshole", "twat"]
+swear_words = ["fuck", "shit", "cunt", "ass", "asshole", "twat", "cock"]
 
 blacklisted_subreddit_filename = "C:\\Users\\Gutman\\Desktop\\Reddit_Bot\\blacklisted_subreddits.txt"
 blacklisted_users_filename = "C:\\Users\\Gutman\\Desktop\\Reddit_Bot\\blacklisted_users.txt"
@@ -27,19 +27,27 @@ bot_profile = reddit.redditor(bot_name)
 #TODO - Create a log file?
 #TODO - Check if subreddit is banned, if so, don't reply.
 
-
-
 # # # # # # # # # # # # # # # # # # #
+
 def UserPostKarma(reddit, username):
-    karma = reddit.redditor(username).link_karma
-    return karma  
+    return reddit.redditor(username).link_karma
 
 # # # # #
+
 def GetHotCommentScore(reddit, username):
     for comment in reddit.redditor(username).comments.top("all"):
         return comment.score
 
+def GetHotSubmissionScore(reddit, username):
+    for post in reddit.redditor(username).submissions.top("all"):
+        return post.score
+
+def GetHotSubmissionLink(reddit, username):
+    for post in reddit.redditor(username).submissions.top("all"):
+        return post.url
+
 # # # # #
+
 def GetRecentPost(reddit, username):
     for recent in reddit.redditor(username).submissions.new(limit=1):
         return datetime.datetime.fromtimestamp(recent.created)
@@ -49,39 +57,26 @@ def GetRecentComment(reddit, username):
         return datetime.datetime.fromtimestamp(recent.created)
 
 # # # # #
-def GetSwearsComments(reddit, username):
+
+# TODO - Refactor swear retrival.
+# TODO - GET TO WORK!!!
+
+def GetSwearWords(reddit, username, isPost):
     count = 0
-
-    for comments in reddit.redditor(username).comments.top("all"):
-        for i in range(len(swear_words)):
-            if swear_words[i] in comments.body:
-                count += 1
+    if isPost:
+        for post in reddit.redditor(username).submissions.hot(limit=10):
+            for i in range(len(swear_words)):
+                if "fuck" in post.selftext:
+                    count += 1
+    elif not isPost:
+        for comment in reddit.redditor(username).comments.new(limit=10):
+            for i in range(len(swear_words)):
+                if "fuck" in comment.body:
+                    count += 1
     return count
-
-def GetSwearsPosts(reddit, username):
-    count = 0
-
-    for posts in reddit.redditor(username).submissions.top("all"):
-        for i in range(len(swear_words)):
-            if swear_words[i] in posts.selftext or swear_words[i] in posts.title:
-                count += 1
-    return count
-
-# # # # #
-def GetAmountOfWords(comment, word):
-    return comment.lower().split().count(word)
-
-# # # # #
-def GetHotSubmissionScore(reddit, username):
-    for post in reddit.redditor(username).submissions.top("all"):
-        return post.score
-
-def GetHotSubmissionLink(reddit, username):
-    for post in reddit.redditor(username).submissions.top("all"):
-        return post.url
-
-
+            
 # # # # # # # # # # # # # # # # # # #
+
 def TextToList(filepath):
     return_list = []
     if os.path.isfile(filepath):
@@ -93,6 +88,7 @@ def TextToList(filepath):
 
 
 # # # # # # # # # # # # # # # # # # #
+
 def CheckCommentScore():
     limit = 500
     removeThreshold = 0
@@ -103,6 +99,7 @@ def CheckCommentScore():
 
 
 # Blacklist Functions #
+
 def BlacklistUser(reddit):
     filepath = blacklisted_users_filename
     id = "6k79wh"
@@ -125,8 +122,8 @@ def BlacklistSubreddit(reddit):
                 f.write(comments.body)
     print("Done")    
 
-
 # Id Functions
+
 def ClearIDs(filepath):
     f = open(filepath, "w").truncate()
 
@@ -137,6 +134,7 @@ def FileContainsID(filepath, id):
 
 
 # Useful Functions
+
 def MessageUser(reddit, username, subject, body):
     print("Messaging {name}")
     redditor = reddit.redditor(username).message(subject, body)
@@ -148,22 +146,29 @@ def ReplyToComments(reddit, subreddit, amount):
     else:
         print("Receiving {amount} comment.".format(amount=amount))
     
+    for i in range(len(blacklisted_subs)):
+        if subreddit in blacklisted_subs[i][3:]:
+            return
+
     for comment in reddit.subreddit(subreddit).comments(limit=amount):
         if call_word in comment.body and comment.author != reddit.user.me:
+            for i in range(len(blacklisted_users)):
+                if comment.author.name in blacklisted_users[i][3:]: 
+                    return
             if not FileContainsID(comments_replied_filename, comment.id):
                 if comment.score > 0:
                     exclude_nsfw = exclude_nsfw_string not in comment.body[-5:]
 
                     reply = CommentReply(comment, exclude_nsfw)
                     print("Replying to comment...")
+                    print(comment.body)
                     comment.reply(reply)
 
-                    with open(comments_replied_filename, "a") as f:
-                        f.write(comment.id + "\n")
-    print("Sleeping for 5 seconds")
-    time.sleep(5)
+                    #with open(comments_replied_filename, "a") as f:
+                     #   f.write(comment.id + "\n")
 
 # TODO - Find a way to clean this up.
+
 def CommentReply(comment, nsfw):
     user_post_karma = UserPostKarma(reddit, comment.author.name)
     user_hot_comment = GetHotCommentScore(reddit, comment.author.name)
@@ -185,9 +190,9 @@ def CommentReply(comment, nsfw):
         comment_reply += "\n\n"
         comment_reply += "{caller}'s Hot Post: {hot} upvotes @ {link}".format(caller=comment.author.name, hot=user_hot_post, link=GetHotSubmissionLink(reddit, comment.author.name))
         comment_reply += "\n\n"
-        comment_reply += "Amount of Swear Words in {caller}'s Comments: {sWords}".format(caller=comment.author.name, sWords=GetSwearsComments(reddit, comment.author.name))
+        comment_reply += "Swear Words for {caller} in Last 10 Comments: {swearComments}".format(caller=comment.author.name, swearComments=GetSwearWords(reddit, comment.author.name, False))
         comment_reply += "\n\n"
-        comment_reply += "Amount of Swear Words in {caller}'s Posts: {sWords}".format(caller=comment.author.name, sWords=GetSwearsPosts(reddit, comment.author.name))
+        comment_reply += "Swear Words for {caller} in Last 10 Posts: {swearPosts}".format(caller=comment.author.name, swearPosts=GetSwearWords(reddit, comment.author.name, True))
         comment_reply += "\n\n" + "***" + "\n\n"
         comment_reply += "^I'm ^a ^bot. ^| ^Creator: ^/u/PyschoPenguin ^| ^[Blacklist](https://www.reddit.com/r/PythonInfoBotTest/comments/6k79wh/blacklist/)"
     elif not nsfw:
@@ -206,8 +211,8 @@ def CommentReply(comment, nsfw):
         comment_reply += "^I'm ^a ^bot. ^| ^Creator: ^/u/PyschoPenguin ^| ^[Blacklist](https://www.reddit.com/r/PythonInfoBotTest/comments/6k79wh/blacklist/)"
     return comment_reply
 
-ReplyToComments(reddit, test_subreddit, 5)
-
 blacklisted_subs = TextToList(blacklisted_subreddit_filename)
 blacklisted_users = TextToList(blacklisted_users_filename)
 posted_comments_id = TextToList(comments_replied_filename)
+
+ReplyToComments(reddit, test_subreddit, 5)

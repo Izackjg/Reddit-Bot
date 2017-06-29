@@ -34,13 +34,13 @@ def UserPostKarma(reddit, username):
 
 # # # # #
 
-def GetHotCommentScore(reddit, username):
-    for comment in reddit.redditor(username).comments.top("all"):
-        return comment.score
-
-def GetHotSubmissionScore(reddit, username):
-    for post in reddit.redditor(username).submissions.top("all"):
-        return post.score
+def GetHotScore(reddit, username, isPost):
+    if isPost:
+        for post in reddit.redditor(username).submissions.top("all"):
+            return post.score
+    elif not isPost:
+        for comment in reddit.redditor(username).comments.top("all"):
+            return comment.score
 
 def GetHotSubmissionLink(reddit, username):
     for post in reddit.redditor(username).submissions.top("all"):
@@ -48,13 +48,13 @@ def GetHotSubmissionLink(reddit, username):
 
 # # # # #
 
-def GetRecentPost(reddit, username):
-    for recent in reddit.redditor(username).submissions.new(limit=1):
-        return datetime.datetime.fromtimestamp(recent.created)
-
-def GetRecentComment(reddit, username):
-    for recent in reddit.redditor(username).comments.new(limit=1):
-        return datetime.datetime.fromtimestamp(recent.created)
+def GetRecent(reddit, username, isPost):
+    if isPost:
+        for recentPost in reddit.redditor(username).submissions.new(limit=1):
+            return datetime.datetime.fromtimestamp(recentPost.created)
+    elif not isPost:
+        for recentComment in reddit.redditor(username).submissions.new(limit=1):
+            return datetime.datetime.fromtimestamp(recentComment.created)
 
 # # # # #
 
@@ -171,11 +171,11 @@ def ReplyToComments(reddit, subreddit, amount):
 
 def CommentReply(comment, nsfw):
     user_post_karma = UserPostKarma(reddit, comment.author.name)
-    user_hot_comment = GetHotCommentScore(reddit, comment.author.name)
-    user_hot_post = GetHotSubmissionScore(reddit, comment.author.name)
+    user_hot_comment = GetHotScore(reddit, comment.author.name, False)
+    user_hot_post = GetHotScore(reddit, comment.author.name, True)
 
-    user_recent_post = GetRecentPost(reddit, comment.author.name)
-    user_recent_comment = GetRecentComment(reddit, comment.author.name)
+    user_recent_post = GetRecent(reddit, comment.author.name, True)
+    user_recent_comment = GetRecent(reddit, comment.author.name, False)
 
     if nsfw:
         comment_reply = "UserInfoBot: *{caller}* [NSFW Version]".format(caller=comment.author.name)

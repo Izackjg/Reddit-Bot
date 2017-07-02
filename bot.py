@@ -1,83 +1,55 @@
 import praw
+from time import sleep
 import datetime
-import time
 import os
 
-swear_words = ["fuck", "shit", "cunt", "ass", "asshole", "twat", "cock"]
+# TODO - if user does not have any NSFW comments/posts change string
+# TODO - check if user/sub is banned
+# TODO - implement functionality of calling info for other users
 
-blacklisted_subreddit_filename = "C:\\Users\\Gutman\\Desktop\\Reddit_Bot\\blacklisted_subreddits.txt"
-blacklisted_users_filename = "C:\\Users\\Gutman\\Desktop\\Reddit_Bot\\blacklisted_users.txt"
-posts_replied_filename = "C:\\Users\\Gutman\\Desktop\\Reddit_Bot\\posts_replied.txt"
-comments_replied_filename = "C:\\Users\\Gutman\\Desktop\\Reddit_Bot\\comment_replied.txt"
+def get_nsfw_info(reddit, username, time_filter, is_post):
+    if is_post:
+        for post in reddit.redditor(username).submissions.top(time_filter=time_filter):
+            if post.over_18:
+                return post.score
+    elif not is_post:
+        for comment in reddit.redditor(username).comments.top(time_filter=time_filter):
+            if comment.over_18:
+                return comment.score
 
-exclude_nsfw_string = "-nsfw"
+def get_nsfw_post_link(reddit, username, time_filter):
+    for post in reddit.redditor(username).submissions.top(time_filter=time_filter):
+        if post.over_18:
+            return post.url
 
-bot_name = "UserInfo_Bot"
-test_subreddit = "PythonInfoBotTest"
-call_word = "call userinfo_bot" 
+def delete_comment():
+    limit = 500
+    threshold = 0
 
-reddit = praw.Reddit("bot1")
-bot_profile = reddit.redditor(bot_name)
+    for bot_comment in bot_profile.comments.new(limit=limit):
+        if bot_comment.score < threshold:
+            bot_comment.delete()
 
-#var = reddit.redditor(reddit.user.karma) - karma
-#var = reddit.redditor(reddit.user.subreddits) - subbed subreddits
-#var = reddit.inbox.messages(limit=None)
-
-
-#TODO - Create a log file?
-#TODO - Check if subreddit is banned, if so, don't reply.
-
-# # # # # # # # # # # # # # # # # # #
-
-def UserPostKarma(reddit, username):
+def get_karma(reddit, username):
     return reddit.redditor(username).link_karma
 
-# # # # #
-
-def GetHotScore(reddit, username, isPost):
-    if isPost:
-        for post in reddit.redditor(username).submissions.top("all"):
+def get_info(reddit, username, time_filter, is_post):
+    if is_post:
+        for post in reddit.redditor(username).submissions.top(time_filter=time_filter):
             return post.score
-    elif not isPost:
-        for comment in reddit.redditor(username).comments.top("all"):
+    elif not is_post:
+        for comment in reddit.redditor(username).comments.top(time_filter=time_filter):
             return comment.score
 
-def GetHotSubmissionLink(reddit, username):
-    for post in reddit.redditor(username).submissions.top("all"):
+def get_post_link(reddit, username, time_filter):
+    for post in reddit.redditor(username).submissions.top(time_filter=time_filter):
         return post.url
 
-# # # # #
+def message(reddit, username, subject, body):
+    redditor = reddit.redditor(username).message(subject, body)
+    time.sleep(5)
 
-def GetRecent(reddit, username, isPost):
-    if isPost:
-        for recentPost in reddit.redditor(username).submissions.new(limit=1):
-            return datetime.datetime.fromtimestamp(recentPost.created)
-    elif not isPost:
-        for recentComment in reddit.redditor(username).submissions.new(limit=1):
-            return datetime.datetime.fromtimestamp(recentComment.created)
-
-# # # # #
-
-# TODO - Refactor swear retrival.
-# TODO - GET TO WORK!!!
-
-def GetSwearWords(reddit, username, isPost):
-    count = 0
-    if isPost:
-        for post in reddit.redditor(username).submissions.hot(limit=10):
-            for i in range(len(swear_words)):
-                if "fuck" in post.selftext:
-                    count += 1
-    elif not isPost:
-        for comment in reddit.redditor(username).comments.new(limit=10):
-            for i in range(len(swear_words)):
-                if "fuck" in comment.body:
-                    count += 1
-    return count
-            
-# # # # # # # # # # # # # # # # # # #
-
-def TextToList(filepath):
+def txt_to_list(filepath):
     return_list = []
     if os.path.isfile(filepath):
         with open(filepath, "r") as f:
@@ -86,133 +58,72 @@ def TextToList(filepath):
             return_list = list(filter(None, return_list))
     return return_list
 
+def comment_reply(comment, nsfw):
+    reply = ""
+    nsfw_filter_string = ""
+    blacklist_url = "https://www.reddit.com/r/PythonInfoBotTest/comments/6k79wh/blacklist/"
+    footer_string = "^I'm ^a ^bot. ^| ^[Blacklist](" + blacklist_url + ")"
+    end_line_string = "\n\n *** \n\n"
 
-# # # # # # # # # # # # # # # # # # #
+    user_karma = get_karma(reddit, comment.author.name)
+    user_hot_comment = get_info(reddit, comment.author.name, "year", False)
+    user_hot_post = get_info(reddit, comment.author.name, "year", True)
+    user_hot_post_link = get_post_link(reddit, comment.author.name, "year")
 
-def CheckCommentScore():
-    limit = 500
-    removeThreshold = 0
-
-    for botComment in bot_profile.comments.new(limit=limit):
-        if botComment.score < removeThreshold:
-            botComment.delete()
-
-
-# Blacklist Functions #
-
-def BlacklistUser(reddit):
-    filepath = blacklisted_users_filename
-    id = "6k79wh"
-    blacklistSubmission = reddit.submission(id).comments
-    for comments in blacklistSubmission:
-        if comments.body[:3] == "/u/":
-            blacklisted_users.append(comments.body)
-            with open(filepath, "w") as f:
-                f.write(comments.body + "\n")
-    print("Done")
-    
-def BlacklistSubreddit(reddit):
-    filepath = blacklisted_subreddit_filename
-    id = "6k79wh"
-    blacklistSubmission = reddit.submission(id).comments
-    for comments in blacklistSubmission:
-        if comments.body[:3] == "/r/":
-            blacklisted_subs.append(comments.body)
-            with open(filepath, "w") as f:
-                f.write(comments.body)
-    print("Done")    
-
-# Id Functions
-
-def ClearIDs(filepath):
-    f = open(filepath, "w").truncate()
-
-def FileContainsID(filepath, id):
-    if id in open(filepath).read():
-        return True
-    return False
-
-
-# Useful Functions
-
-def MessageUser(reddit, username, subject, body):
-    print("Messaging {name}")
-    redditor = reddit.redditor(username).message(subject, body)
-    time.sleep(5)
-
-def ReplyToComments(reddit, subreddit, amount):
-    if amount > 1:
-        print("Recieving {amount} comments.".format(amount=amount))
-    else:
-        print("Receiving {amount} comment.".format(amount=amount))
-    
-    for i in range(len(blacklisted_subs)):
-        if subreddit in blacklisted_subs[i][3:]:
-            return
-
-    for comment in reddit.subreddit(subreddit).comments(limit=amount):
-        if call_word in comment.body and comment.author != reddit.user.me:
-            for i in range(len(blacklisted_users)):
-                if comment.author.name in blacklisted_users[i][3:]: 
-                    return
-            if not FileContainsID(comments_replied_filename, comment.id):
-                if comment.score > 0:
-                    exclude_nsfw = exclude_nsfw_string not in comment.body[-5:]
-
-                    reply = CommentReply(comment, exclude_nsfw)
-                    print("Replying to comment...")
-                    print(comment.body)
-                    comment.reply(reply)
-
-                    #with open(comments_replied_filename, "a") as f:
-                     #   f.write(comment.id + "\n")
-
-# TODO - Find a way to clean this up.
-
-def CommentReply(comment, nsfw):
-    user_post_karma = UserPostKarma(reddit, comment.author.name)
-    user_hot_comment = GetHotScore(reddit, comment.author.name, False)
-    user_hot_post = GetHotScore(reddit, comment.author.name, True)
-
-    user_recent_post = GetRecent(reddit, comment.author.name, True)
-    user_recent_comment = GetRecent(reddit, comment.author.name, False)
+    user_nsfw_comment = get_nsfw_info(reddit, comment.author.name, "year", False)
+    user_nsfw_post = get_nsfw_info(reddit, comment.author.name, "year", True)
+    user_nsfw_post_link = get_nsfw_post_link(reddit, comment.author.name, "year")
 
     if nsfw:
-        comment_reply = "UserInfoBot: *{caller}* [NSFW Version]".format(caller=comment.author.name)
-        comment_reply += "\n\n"
-        comment_reply += "User Post Karma: {karma}".format(karma=user_post_karma)
-        comment_reply += "\n\n"
-        comment_reply += "{caller}'s Most Recent Post: {recent}".format(caller=comment.author.name, recent=user_recent_post)
-        comment_reply += "\n\n"
-        comment_reply += "{caller}'s Most Recent Comment: {recent}".format(caller=comment.author.name, recent=user_recent_comment)
-        comment_reply += "\n\n"
-        comment_reply += "{caller}'s Hot Comment: {hot} upvotes".format(caller=comment.author.name, hot=user_hot_comment)
-        comment_reply += "\n\n"
-        comment_reply += "{caller}'s Hot Post: {hot} upvotes @ {link}".format(caller=comment.author.name, hot=user_hot_post, link=GetHotSubmissionLink(reddit, comment.author.name))
-        comment_reply += "\n\n"
-        comment_reply += "Swear Words for {caller} in Last 10 Comments: {swearComments}".format(caller=comment.author.name, swearComments=GetSwearWords(reddit, comment.author.name, False))
-        comment_reply += "\n\n"
-        comment_reply += "Swear Words for {caller} in Last 10 Posts: {swearPosts}".format(caller=comment.author.name, swearPosts=GetSwearWords(reddit, comment.author.name, True))
-        comment_reply += "\n\n" + "***" + "\n\n"
-        comment_reply += "^I'm ^a ^bot. ^| ^Creator: ^/u/PyschoPenguin ^| ^[Blacklist](https://www.reddit.com/r/PythonInfoBotTest/comments/6k79wh/blacklist/)"
-    elif not nsfw:
-        comment_reply = "UserInfoBot: *{caller}*".format(caller=comment.author.name)
-        comment_reply += "\n\n"
-        comment_reply += "User Post Karma: {karma}".format(karma=user_post_karma)
-        comment_reply += "\n\n"
-        comment_reply += "{caller}'s Most Recent Post: {recent}".format(caller=comment.author.name, recent=user_recent_post)
-        comment_reply += "\n\n"
-        comment_reply += "{caller}'s Most Recent Comment: {recent}".format(caller=comment.author.name, recent=user_recent_comment)
-        comment_reply += "\n\n"
-        comment_reply += "{caller}'s Hot Comment: {hot} upvotes".format(caller=comment.author.name, hot=user_hot_comment)
-        comment_reply += "\n\n"
-        comment_reply += "{caller}'s Hot Post: {hot} upvotes @ {link}".format(caller=comment.author.name, hot=user_hot_post, link=GetHotSubmissionLink(reddit, comment.author.name))
-        comment_reply += "\n\n" + "***" + "\n\n"
-        comment_reply += "^I'm ^a ^bot. ^| ^Creator: ^/u/PyschoPenguin ^| ^[Blacklist](https://www.reddit.com/r/PythonInfoBotTest/comments/6k79wh/blacklist/)"
-    return comment_reply
+        nsfw_filter_string = "[NSFW]"
+        reply = "{name}: *{author}* {nsfw_string}".format(name=bot_name, author=comment.author.name, nsfw_string=nsfw_filter_string)
+        reply += "\n\n"
+        reply += "User Post Karma: {karma}".format(karma=user_karma)
+        reply += "\n\n"
+        reply += "{author}'s Hot Post from this Year: {post} upvotes @ {link}".format(author=comment.author.name, post=user_hot_post, link=user_hot_post_link)
+        reply += "\n\n"
+        reply += "{author}'s Hot Comment from this Year: {comment} upvotes".format(author=comment.author.name, comment=user_hot_comment)
+        reply += "\n\n"
+        reply += "{author}'s Hot **NSFW** Post from this Year: {post} upvotes @ {link}".format(author=comment.author.name, post=user_nsfw_post, link=user_nsfw_post_link)
+        reply += "\n\n"
+        reply += "{author}'s Hot **NSFW** Comment from this Year: {comment} upvotes".format(author=comment.author.name, comment=user_nsfw_comment)
+        reply += end_line_string
+        reply += footer_string
+    elif not nsfw: 
+        nsfw_filter_string = ""
+        reply = "{name}: *{author}* {nsfw_string}".format(name=bot_name, author=comment.author.name, nsfw_string=nsfw_filter_string)
+        reply += "\n\n"
+        reply += "User Post Karma: {karma}".format(karma=user_karma)
+        reply += "\n\n"
+        reply += "{author}'s Hot Comment from this Year: {comment}".format(author=comment.author.name, comment=user_hot_comment)
+        reply += "\n\n"
+        reply += "{author}'s Hot Post from this Year: {post} @ {link}".format(author=comment.author.name, post=user_hot_post, link=user_hot_post_link)
+        reply += end_line_string
+        reply += footer_string
+    return reply
 
-blacklisted_subs = TextToList(blacklisted_subreddit_filename)
-blacklisted_users = TextToList(blacklisted_users_filename)
-posted_comments_id = TextToList(comments_replied_filename)
+def reply_to_comment(reddit, subreddit, amount):
+    for comment in reddit.subreddit(subreddit).comments(limit=amount):
+        if call_word in comment.body and comment.author != reddit.user.me():
+            exclude_nsfw = exclude_nsfw_string not in comment.body[-5:]
+            reply = comment_reply(comment, exclude_nsfw)
+            print("replying..")
+            comment.reply(reply)
 
-ReplyToComments(reddit, test_subreddit, 5)
+            #with open(comments_replied_filename, "a") as f:
+             #         f.write(comment.id + "\n")
+
+reddit = praw.Reddit("bot1")
+bot_name = "UserInfo_Bot"
+bot_profile = reddit.redditor(bot_name)
+
+exclude_nsfw_string = "-nsfw"
+test_subreddit = "PythonInfoBotTest"
+call_word = "call userinfo_bot"
+
+blacklisted_subs_filepath = "C:\\Users\\Gutman\\Desktop\\Reddit_Bot\\blacklisted_subreddits.txt"
+blacklisted_users_filepath = "C:\\Users\\Gutman\\Desktop\\Reddit_Bot\\blacklisted_users.txt"
+posts_replied_filepath = "C:\\Users\\Gutman\\Desktop\\Reddit_Bot\\posts_replied.txt"
+comments_replied_filename = "C:\\Users\\Gutman\\Desktop\\Reddit_Bot\\comment_replied.txt"
+
+reply_to_comment(reddit, test_subreddit, 5)
